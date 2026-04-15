@@ -4,12 +4,17 @@
 #include "Keypad.h"
 #include "SevenSeg.h"
 #include "Utils.h"
+#include "Exti.h"
 
 #define NO_KEY_PRESSED 0xFF
 #define FAILURE_LIMIT 3
 
 void SM_Init(void);
 void SM_Update(void);
+void SM_SetResetFlagFromISR(void);
+void SM_SetDoorBellFlagFromISR(void);
+void App_EmergencyResetCallback(void);
+void App_DoorBellCallback(void);
 
 // Static variables
 static uint8 input_buffer[PASSWORD_LENGTH];
@@ -18,9 +23,11 @@ static uint8 failure_count = 0;
 
 static void InitClocks(void) {
     Rcc_Init();
+    Rcc_Enable(RCC_GPIOA);
     Rcc_Enable(RCC_GPIOB);
     Rcc_Enable(RCC_GPIOC);
     Rcc_Enable(RCC_GPIOD);
+    Rcc_Enable(RCC_SYSCFG);
 }
 
 static void InitLeds(void) {
@@ -30,10 +37,21 @@ static void InitLeds(void) {
     Gpio_Init(PROGRESS_LED3, GPIO_OUTPUT, GPIO_PUSH_PULL);
     Gpio_Init(SUCCESS_LED, GPIO_OUTPUT, GPIO_PUSH_PULL);
     Gpio_Init(Alarm_LED, GPIO_OUTPUT, GPIO_PUSH_PULL);
+    Gpio_Init(DOORBELL_LED, GPIO_OUTPUT, GPIO_PUSH_PULL);
 }
 
 static void InitLockButton(void) {
     Gpio_Init(LOCK_BUTTON_PORT, LOCK_BUTTON_PIN, GPIO_INPUT, GPIO_PULL_UP);
+}
+
+static void InitExternalInterrupts(void) {
+    Gpio_Init(EMERGENCY_BUTTON_PORT, EMERGENCY_BUTTON_PIN, GPIO_INPUT, GPIO_PULL_UP);
+    Exti_Init(EMERGENCY_EXTI_LINE, EMERGENCY_EXTI_PORT, EXTI_EDGE_FALLING, App_EmergencyResetCallback);
+    Exti_Enable(EMERGENCY_EXTI_LINE);
+
+    Gpio_Init(DOORBELL_BUTTON_PORT, DOORBELL_BUTTON_PIN, GPIO_INPUT, GPIO_PULL_UP);
+    Exti_Init(DOORBELL_EXTI_LINE, DOORBELL_EXTI_PORT, EXTI_EDGE_FALLING, App_DoorBellCallback);
+    Exti_Enable(DOORBELL_EXTI_LINE);
 }
 
 static void TurnOffAllLeds(void) {
@@ -43,6 +61,7 @@ static void TurnOffAllLeds(void) {
     Gpio_WritePin(PROGRESS_LED3, LOW);
     Gpio_WritePin(SUCCESS_LED, LOW);
     Gpio_WritePin(Alarm_LED, LOW);
+    Gpio_WritePin(DOORBELL_LED, LOW);
 }
 
 static void TurnOnProgressLed(uint8 position) {
@@ -81,6 +100,7 @@ static void ResetForNewAttempt(void) {
     Gpio_WritePin(PROGRESS_LED3, LOW);
     Gpio_WritePin(SUCCESS_LED, LOW);
     Gpio_WritePin(Alarm_LED, LOW);
+    Gpio_WritePin(DOORBELL_LED, LOW);
     ResetInputState();
 }
 
@@ -129,6 +149,7 @@ void App_Init(void) {
     InitClocks();
     InitLeds();
     InitLockButton();
+    InitExternalInterrupts();
     TurnOffAllLeds();
 
     Keypad_Init();
@@ -189,8 +210,15 @@ void App_HandleLockCommandOutput(void) {
     SevenSeg_Display(failure_count);
 }
 
+void App_HandleDoorBellOutput(void) {
+    Gpio_WritePin(DOORBELL_LED, HIGH);
+    delay_ms(1000);
+    Gpio_WritePin(DOORBELL_LED, LOW);
+
+}
+
 void App_HandleEmergencyResetOutput(void) {
-    Gpio_WritePin(Alarm_LED, LOW);
+
     failure_count = 0;
     SevenSeg_Display(failure_count);
     ClearInputBuffer();
@@ -205,4 +233,12 @@ uint8 App_IsLockButtonPressed(void) {
 
     previous_state = current_state;
     return is_pressed_edge;
+}
+
+void App_EmergencyResetCallback(void) {
+    SM_SetResetFlagFromISR();
+}
+
+void App_DoorBellCallback(void) {
+    SM_SetDoorBellFlagFromISR();
 }
