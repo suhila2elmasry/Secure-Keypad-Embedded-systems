@@ -12,8 +12,9 @@ typedef enum {
 void SM_Init(void);
 void SM_Update(void);
 
-// ISR-facing setter for emergency reset only.
+// ISR-facing setters: callbacks only set flags, no logic.
 void SM_SetResetFlagFromISR(void);
+void SM_SetDoorBellFlagFromISR(void);
 
 SM_State SM_GetState(void);
 

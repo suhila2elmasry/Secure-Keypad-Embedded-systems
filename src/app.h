@@ -30,13 +30,17 @@
 #define DOORBELL_EXTI_LINE    EXTI_LINE_2
 #define DOORBELL_EXTI_PORT    EXTI_PORT_A
 
+// NVIC priority levels (lower value = higher priority)
+#define EMERGENCY_NVIC_PRIORITY 0U
+#define DOORBELL_NVIC_PRIORITY   1U
+
 // Correct password
 #define CORRECT_PASSWORD "1234"
 #define PASSWORD_LENGTH 4
 
 // Function prototypes
 void App_Init(void);
-void App_Run(void);
+// void App_Run(void);
 
 // State-machine integration API (implemented in app.c)
 uint8 App_ProcessKeypadInputStep(void);

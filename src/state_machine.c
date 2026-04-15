@@ -13,6 +13,7 @@ typedef enum {
 
 static SM_State current_state = STATE_LOCKED;
 static volatile uint8 reset_flag = 0;
+// static volatile uint8 doorbell_flag = 0;
 
 static SM_Event DetectEvent(void) {
     if (reset_flag) {
@@ -67,10 +68,10 @@ void SM_Update(void) {
                     }
                     break;
 
-                case EVENT_EMERGENCY_RESET_TRIGGERED:
-                    App_HandleEmergencyResetOutput();
-                    current_state = STATE_LOCKED;
-                    break;
+                // case EVENT_EMERGENCY_RESET_TRIGGERED:
+               // // App_HandleEmergencyResetOutput();
+                //     current_state = STATE_LOCKED;
+                //     break;
 
                 case EVENT_LOCK_COMMAND_TRIGGERED:
                 case EVENT_NONE:
@@ -85,10 +86,16 @@ void SM_Update(void) {
                 current_state = STATE_LOCKED;
             }
             break;
+            // case EVENT_EMERGENCY_RESET_TRIGGERED:
+            // // App_HandleEmergencyResetOutput();
+            //     current_state = STATE_LOCKED;
+            //     break;
+
 
         case STATE_ALARM:
+
             if (event == EVENT_EMERGENCY_RESET_TRIGGERED) {
-                App_HandleEmergencyResetOutput();
+                // App_HandleEmergencyResetOutput();
                 current_state = STATE_LOCKED;
             }
             break;
