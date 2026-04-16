@@ -11,22 +11,18 @@ typedef struct {
 } ExtiType;
 
 typedef struct {
-    volatile uint32 NVIC_ISER[8];   // 0x000
+    volatile uint32 NVIC_ISER[8];
     uint32 RESERVED0[24];
-
-    volatile uint32 NVIC_ICER[8];   // 0x080
+    volatile uint32 NVIC_ICER[8];
     uint32 RESERVED1[24];
-
-    volatile uint32 NVIC_ISPR[8];   // 0x100
+    volatile uint32 NVIC_ISPR[8];
     uint32 RESERVED2[24];
-
-    volatile uint32 NVIC_ICPR[8];   // 0x180
+    volatile uint32 NVIC_ICPR[8];
     uint32 RESERVED3[24];
-
-    volatile uint32 NVIC_IABR[8];   // 0x200
+    volatile uint32 NVIC_IABR[8];
     uint32 RESERVED4[56];
-
-    volatile uint8 NVIC_IPR[240];   // 0x300
+    // volatile uint8 NVIC_IPR[240];
+    volatile uint32 NVIC_IPR[60];
 } NvicType;
 
 typedef struct {
@@ -86,10 +82,23 @@ void Exti_Disable(uint8 LineNumber) {
     NVIC->NVIC_ICER[irqNumber / 32] |= (0x01 << (irqNumber % 32));
 }
 
+// void Exti_SetNvicPriority(uint8 LineNumber, uint8 Priority) {
+//     uint8 irqNumber = ExtiLineNumberNvicMap[LineNumber];
+//     NVIC->NVIC_IPR[irqNumber] = (Priority << 4);
+// }
+
 void Exti_SetNvicPriority(uint8 LineNumber, uint8 Priority) {
     uint8 irqNumber = ExtiLineNumberNvicMap[LineNumber];
-    NVIC->NVIC_IPR[irqNumber] = (Priority << 4);
+
+    uint8 regIndex = irqNumber / 4;
+    uint8 bytePos  = irqNumber % 4;
+
+    uint8 shift = (bytePos * 8) + 4;
+
+    NVIC->NVIC_IPR[regIndex] &= ~(0xF << shift);
+    NVIC->NVIC_IPR[regIndex] |= (Priority << shift);
 }
+
 
 
 void EXTI0_IRQHandler(void) {
@@ -156,7 +165,7 @@ void EXTI9_5_IRQHandler(void) {
         if (ExtiCallbacks[9]) {
             ExtiCallbacks[9]();
         }
-        EXTI->PR |= (0x01 << 8); // Clear pending bit
+        EXTI->PR |= (0x01 << 9); // Clear pending bit
     }
 }
 
