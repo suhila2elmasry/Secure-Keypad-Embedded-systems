@@ -1,3 +1,6 @@
+
+---
+
 # 🔐 Secure Keypad System (Embedded Project)
 
 ## 📌 Overview
@@ -12,12 +15,15 @@ The system is fully **simulated using Proteus** to validate both hardware behavi
 ## 🧠 System Features
 
 * 4x4 Keypad for password input
+
 * 7-Segment display for failure count
+
 * LEDs for:
 
   * Progress indication
   * Success (Unlocked)
   * Alarm state
+
 * External interrupts (EXTI):
 
   * Emergency Reset
@@ -26,8 +32,6 @@ The system is fully **simulated using Proteus** to validate both hardware behavi
 ---
 
 ## 🧩 System Architecture
-
-The system is divided into layers:
 
 ```text
 Drivers Layer (GPIO, RCC, Keypad, SevenSeg, EXTI)
@@ -46,25 +50,23 @@ The system is implemented and tested using **Proteus simulation environment**.
 ### Simulation Setup:
 
 * Microcontroller (STM32 or equivalent)
+
 * 4x4 Keypad connected via GPIO
+
 * External buttons:
 
   * Emergency Reset (EXTI)
   * Door Bell (EXTI)
+  * Lock Command Button (GPIO - Polling)
+
 * 7-Segment Display for failure count
+
 * LEDs for:
 
   * Progress indication
   * Success state
   * Alarm state
   * Door Bell indicator
-
-### Purpose:
-
-* Validate hardware interfacing
-* Test interrupt behavior
-* Verify state machine transitions
-* Ensure correct system response
 
 ---
 
@@ -77,12 +79,27 @@ The system is implemented and tested using **Proteus simulation environment**.
 
 ---
 
+### 🔘 Lock Command Button (GPIO - Polling)
+
+* Regular push button
+* **Not connected to interrupts (NO EXTI)**
+* Used only when system is in **UNLOCKED state**
+
+Behavior:
+
+* When pressed:
+
+  * System locks again
+  * Clears success indication
+  * Returns to LOCKED state
+
+---
+
 ### 🚨 External Interrupts (EXTI)
 
 #### 1. Emergency Reset
 
-* Configured as external interrupt
-* Used to recover the system from ALARM state
+* Configured as **high-priority external interrupt**
 
 Behavior:
 
@@ -128,7 +145,7 @@ IMPORTANT:
 
 ## 🧠 Interrupt Design
 
-* ISR contains NO logic
+* ISR contains **NO logic**
 * Only sets flags
 * All behavior handled inside state machine
 
@@ -136,8 +153,8 @@ IMPORTANT:
 
 ## ⚡ Priority Concept
 
-* Emergency Reset is treated as **highest priority event**
-* Door Bell is treated as **lower priority event**
+* Emergency Reset → **Highest priority**
+* Door Bell → **Lower priority**
 
 Behavior:
 
@@ -146,9 +163,6 @@ Behavior:
 
 * After finishing
   → system resumes Door Bell execution
-
-* If no higher-priority interrupt occurs
-  → interrupts execute normally according to system logic
 
 ---
 
@@ -164,58 +178,106 @@ Behavior:
 
 ### 🔒 STATE_LOCKED
 
-#### Valid Input
+#### Event: Valid Sequence Input Detected
 
-* Update progress LEDs
-* If complete & correct → STATE_UNLOCKED
+* Output:
 
-#### Invalid Input
+  * Update progress indicator
 
-* Clear progress
+* Condition Check:
 
-* Increment failure counter
+  * If Sequence_Complete = TRUE
+    → Transition to STATE_UNLOCKED
 
-* Update 7-segment
+  * Else
+    → Remain in STATE_LOCKED
 
-* If failures < 3 → remain
+---
 
-* If failures == 3 → STATE_ALARM
+#### Event: Invalid Sequence Input Detected
 
-#### Door Bell Event
+* Output:
 
-* Pulse indicator
-* Remain in LOCKED
+  * Clear progress
+  * Increment failure counter
+  * Update 7-segment
+
+* Condition Check:
+
+  * If failures < threshold
+    → Remain in STATE_LOCKED
+
+  * If failures == threshold
+    → Transition to STATE_ALARM
+
+---
+
+#### Event: Door Bell Triggered (EXTI)
+
+* Output:
+
+  * Pulse doorbell indicator
+
+* Next State:
+  → Remain in STATE_LOCKED
 
 ---
 
 ### 🔓 STATE_UNLOCKED
 
-#### Lock Command
+#### Event: Lock Command Triggered (GPIO Button - Polling)
 
-* Turn OFF success LED
-* Clear progress
-  → STATE_LOCKED
+* This event is generated from a **regular button using polling (NOT interrupt)**
 
-#### Keypad Input
+* Output:
 
-* Ignored
+  * Turn OFF success LED
+  * Clear progress indicators
+
+* Next State:
+  → Transition to STATE_LOCKED
+
+---
+
+#### Event: Any Sequence Input Detected
+
+* Output:
+
+  * None (Ignored)
+
+* Next State:
+  → Remain in STATE_UNLOCKED
 
 ---
 
 ### 🚨 STATE_ALARM
 
-* Triggered after 3 failures
-* No timer-based reset
+* Triggered after reaching failure threshold
 
-#### Emergency Reset Event
+---
 
-* Clear alarm
-* Reset system بالكامل
-  → STATE_LOCKED
+#### Event: Emergency Reset Triggered (EXTI)
 
-#### Keypad Input
+* Output:
 
-* Ignored
+  * Clear alarm indicator
+  * Clear progress
+  * Reset failure history
+  * Clear input buffer
+
+* Next State:
+  → Transition to STATE_LOCKED
+
+---
+
+#### Event: Any Sequence Input Detected
+
+* Output:
+
+  * None (Ignored)
+
+* Next State:
+  → Remain in STATE_ALARM
 
 ---
 
@@ -243,8 +305,9 @@ main.c
 ## 🔧 Key Design Decisions
 
 * Mealy State Machine for control logic
-* Interrupt-driven external events
-* Separation between hardware and logic
+* Interrupt-driven external events (EXCEPT Lock button → polling)
+* Clear separation between hardware and logic
 * No logic inside ISR
+* Use of flags for interrupt communication
 
-
+---
